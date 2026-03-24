@@ -31,21 +31,34 @@ function generateCard(size = 5) {
 
 function getCompletedLines(marked, grid) {
   const size = grid.length;
-  if (size === 0) return { diagonals: 0, rows: 0, cols: 0 };
+  if (size === 0) return { diagonals: 0, rows: 0, cols: 0, completedRows: [], completedCols: [], completedDiagonals: [] };
 
   const isMarked = (r,c) => marked.has(`${r}-${c}`) || grid[r][c] === "FREE";
   let rows = 0, cols = 0, diagonals = 0;
+  const completedRows = [], completedCols = [], completedDiagonals = [];
 
   for (let r = 0; r < size; r++) {
-    if (Array.from({ length: size }, (_, c) => c).every(c => isMarked(r, c))) rows++;
+    if (Array.from({ length: size }, (_, c) => c).every(c => isMarked(r, c))) {
+      rows++;
+      completedRows.push(r);
+    }
   }
   for (let c = 0; c < size; c++) {
-    if (Array.from({ length: size }, (_, r) => r).every(r => isMarked(r, c))) cols++;
+    if (Array.from({ length: size }, (_, r) => r).every(r => isMarked(r, c))) {
+      cols++;
+      completedCols.push(c);
+    }
   }
-  if (Array.from({ length: size }, (_, i) => i).every(i => isMarked(i, i))) diagonals++;
-  if (Array.from({ length: size }, (_, i) => i).every(i => isMarked(i, size - 1 - i))) diagonals++;
+  if (Array.from({ length: size }, (_, i) => i).every(i => isMarked(i, i))) {
+    diagonals++;
+    completedDiagonals.push('main');
+  }
+  if (Array.from({ length: size }, (_, i) => i).every(i => isMarked(i, size - 1 - i))) {
+    diagonals++;
+    completedDiagonals.push('anti');
+  }
 
-  return { diagonals, rows, cols };
+  return { diagonals, rows, cols, completedRows, completedCols, completedDiagonals };
 }
 
 function checkWin(marked, grid) {
@@ -65,11 +78,13 @@ function Lobby({ onJoin, onCreate }) {
   const [tab, setTab] = useState("create");
   const [err, setErr] = useState("");
   const [size, setSize] = useState(5);
+  const [roomName, setRoomName] = useState("");
 
   const handleCreate = () => {
     if (!name.trim()) return setErr("Enter your name");
+    if (!roomName.trim()) return setErr("Enter room name");
     const newCode = Math.random().toString(36).substring(2,7).toUpperCase();
-    onCreate(name.trim(), newCode, size);
+    onCreate(name.trim(), newCode, size, roomName.trim());
   };
   const handleJoin = () => {
     if (!name.trim()) return setErr("Enter your name");
@@ -108,6 +123,12 @@ function Lobby({ onJoin, onCreate }) {
             <label style={{color:COLORS.muted, fontSize:"0.8rem", display:"block", marginBottom:"0.4rem"}}>YOUR NAME</label>
             <input value={name} onChange={e=>{setName(e.target.value);setErr("");}} placeholder="Enter your name..." maxLength={20} style={inputStyle}/>
           </div>
+          {tab === "create" && (
+            <div>
+              <label style={{color:COLORS.muted, fontSize:"0.8rem", display:"block", marginBottom:"0.4rem"}}>ROOM NAME</label>
+              <input value={roomName} onChange={e=>{setRoomName(e.target.value);setErr("");}} placeholder="Enter room name..." maxLength={30} style={inputStyle}/>
+            </div>
+          )}
           <div>
             <label style={{color:COLORS.muted, fontSize:"0.8rem", display:"block", marginBottom:"0.4rem"}}>BOARD SIZE</label>
             <select value={size} onChange={e=>{setSize(Number(e.target.value));setErr("");}} style={{...inputStyle, padding:"0.7rem 1rem", fontSize:"1rem"}}>
@@ -137,9 +158,9 @@ function Waiting({ roomCode, players, isHost, onStart, onRefresh, playerName }) 
     <div style={{minHeight:"100vh", background:COLORS.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Space Grotesk', sans-serif", padding:"2rem"}}>
       <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
       <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1.25rem", padding:"2.5rem", width:"100%", maxWidth:"460px", textAlign:"center"}}>
-        <div style={{fontSize:"0.9rem", color:COLORS.muted, marginBottom:"0.5rem"}}>ROOM CODE</div>
-        <div style={{fontSize:"3.5rem", fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"0.3em", color:COLORS.accentLight, marginBottom:"0.25rem"}}>{roomCode}</div>
-        <div style={{fontSize:"0.8rem", color:COLORS.muted, marginBottom:"2rem"}}>Share this code with friends</div>
+        <div style={{fontSize:"0.9rem", color:COLORS.muted, marginBottom:"0.5rem"}}>ROOM NAME</div>
+        <div style={{fontSize:"2rem", fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"0.2em", color:COLORS.accentLight, marginBottom:"0.25rem"}}>{roomCode}</div>
+        <div style={{fontSize:"0.8rem", color:COLORS.muted, marginBottom:"2rem"}}>{room?.name || 'Unnamed Room'}</div>
         <div style={{background:"#0f0f1a", borderRadius:"1rem", padding:"1rem", marginBottom:"2rem"}}>
           <div style={{fontSize:"0.8rem", color:COLORS.muted, marginBottom:"0.75rem", textAlign:"left"}}>PLAYERS ({players.length})</div>
           {players.map((p,i) => (
@@ -165,7 +186,7 @@ function Waiting({ roomCode, players, isHost, onStart, onRefresh, playerName }) 
   );
 }
 
-function BingoCard({ grid, marked, onMark, disabled, won }) {
+function BingoCard({ grid, marked, onMark, disabled, won, completedLines }) {
   const size = grid.length;
   return (
     <div style={{display:"inline-block"}}>
@@ -180,9 +201,14 @@ function BingoCard({ grid, marked, onMark, disabled, won }) {
             const key = `${r}-${c}`;
             const isFree = cell === "FREE";
             const isMarked = marked.has(key) || isFree;
+            const isCompletedRow = completedLines.completedRows.includes(r);
+            const isCompletedCol = completedLines.completedCols.includes(c);
+            const isCompletedMainDiag = completedLines.completedDiagonals.includes('main') && r === c;
+            const isCompletedAntiDiag = completedLines.completedDiagonals.includes('anti') && r === size - 1 - c;
+            const isWinningLine = isCompletedRow || isCompletedCol || isCompletedMainDiag || isCompletedAntiDiag;
             return (
               <button key={c} onClick={() => !disabled && !isFree && onMark(key)}
-                style={{width:"60px", height:"60px", border: isMarked ? `2px solid ${won ? COLORS.gold : COLORS.marked}` : `1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", background: isFree ? `${COLORS.gold}22` : isMarked ? `${COLORS.marked}22` : "#0f0f1a", color: isFree ? COLORS.gold : isMarked ? COLORS.marked : COLORS.text, fontWeight: isMarked ? 700 : 400, fontSize: isFree ? "0.65rem" : "1.1rem", cursor: disabled||isFree?"default":"pointer", fontFamily:"'Space Grotesk', sans-serif", transition:"all 0.15s", transform: isMarked ? "scale(1.05)" : "scale(1)"}}>
+                style={{width:"60px", height:"60px", border: isMarked ? `2px solid ${won ? COLORS.gold : isWinningLine ? COLORS.red : COLORS.marked}` : `1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", background: isFree ? `${COLORS.gold}22` : isMarked ? `${isWinningLine ? COLORS.red : COLORS.marked}22` : "#0f0f1a", color: isFree ? COLORS.gold : isMarked ? (isWinningLine ? COLORS.red : COLORS.marked) : COLORS.text, fontWeight: isMarked ? 700 : 400, fontSize: isFree ? "0.65rem" : "1.1rem", cursor: disabled||isFree?"default":"pointer", fontFamily:"'Space Grotesk', sans-serif", transition:"all 0.15s", transform: isMarked ? "scale(1.05)" : "scale(1)"}}>
                 {isFree ? "FREE" : cell}
               </button>
             );
@@ -215,8 +241,10 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
   const winner = room.winner;
   const isHost = room.players[0]?.name === playerName;
   const calledNums = room.called || [];
-  const lineCounts = grid.length ? getCompletedLines(marked, grid) : { diagonals: 0, rows: 0, cols: 0 };
+  const lineCounts = grid.length ? getCompletedLines(marked, grid) : { diagonals: 0, rows: 0, cols: 0, completedRows: [], completedCols: [], completedDiagonals: [] };
   const completedLines = lineCounts.diagonals + lineCounts.rows + lineCounts.cols;
+  const currentPlayerIndex = room.players.findIndex(p => p.name === playerName);
+  const isMyTurn = room.currentTurn === currentPlayerIndex;
 
   const handleMark = useCallback((key) => {
     const [r,c] = key.split("-").map(Number);
@@ -239,7 +267,10 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
             <div style={{fontSize:"4rem"}}>🎉</div>
             <div style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"3rem", letterSpacing:"0.2em", color:COLORS.gold}}>{winner === playerName ? "YOU WIN!" : `${winner} WINS!`}</div>
             <div style={{color:COLORS.muted, marginBottom:"2rem"}}>BINGO!</div>
-            <button onClick={onLeave} style={{padding:"0.75rem 2rem", background:`linear-gradient(135deg, ${COLORS.accent}, #9333ea)`, color:"#fff", border:"none", borderRadius:"0.75rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit", fontSize:"1rem"}}>Back to Lobby</button>
+            <div style={{display:"flex", gap:"1rem"}}>
+              <button onClick={onLeave} style={{flex:1, padding:"0.75rem", background:"transparent", border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.75rem", color:COLORS.muted, cursor:"pointer", fontFamily:"inherit"}}>Leave Room</button>
+              {isHost && <button onClick={handleReset} style={{flex:1, padding:"0.75rem", background:`linear-gradient(135deg, ${COLORS.accent}, #9333ea)`, color:"#fff", border:"none", borderRadius:"0.75rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit", fontSize:"1rem"}}>New Game</button>}
+            </div>
           </div>
         </div>
       )}
@@ -247,7 +278,7 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
         <div style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"1.8rem", letterSpacing:"0.2em", color:COLORS.accentLight}}>BINGO</div>
         <div style={{display:"flex", gap:"0.5rem", alignItems:"center"}}>
           <span style={{color:COLORS.muted, fontSize:"0.8rem"}}>Room: </span>
-          <span style={{color:COLORS.accentLight, fontWeight:700, letterSpacing:"0.1em"}}>{room.code}</span>
+          <span style={{color:COLORS.accentLight, fontWeight:700, letterSpacing:"0.1em"}}>{room.name || room.code}</span>
         </div>
         <button onClick={onLeave} style={{padding:"0.4rem 0.9rem", background:"transparent", border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.6rem", color:COLORS.muted, cursor:"pointer", fontFamily:"inherit", fontSize:"0.8rem"}}>Leave</button>
       </div>
@@ -263,14 +294,19 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
           {!winner && <div style={{color:COLORS.muted, fontSize:"0.85rem", textAlign:"center", marginBottom:"1rem"}}>Type a number using the manual call input below to share with all players</div>}
           <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
             <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.75rem"}}>PLAYERS</div>
-            {room.players.map((p,i) => (
-              <div key={i} style={{display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.4rem 0", fontSize:"0.9rem"}}>
-                <div style={{width:"8px", height:"8px", borderRadius:"50%", background: p.won ? COLORS.gold : COLORS.green}}></div>
-                <span style={{color: p.name===playerName ? COLORS.accentLight : COLORS.text}}>{p.name} {p.name===playerName?"(you)":""}</span>
-                {i===0 && <span style={{marginLeft:"auto", fontSize:"0.7rem", color:COLORS.gold}}>HOST</span>}
-                {p.won && <span style={{marginLeft:"auto", fontSize:"0.7rem", color:COLORS.gold}}>BINGO!</span>}
-              </div>
-            ))}
+            {room.players.map((p,i) => {
+              const playerLineCounts = p.card ? getCompletedLines(new Set(p.card.flatMap((row, r) => row.map((cell, c) => cell === "FREE" || room.called?.includes(cell) ? `${r}-${c}` : null).filter(Boolean))), p.card) : { diagonals: 0, rows: 0, cols: 0 };
+              const playerCompletedLines = playerLineCounts.diagonals + playerLineCounts.rows + playerLineCounts.cols;
+              return (
+                <div key={i} style={{display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.4rem 0", fontSize:"0.9rem"}}>
+                  <div style={{width:"8px", height:"8px", borderRadius:"50%", background: p.won ? COLORS.gold : i === room.currentTurn ? COLORS.accent : COLORS.green}}></div>
+                  <span style={{color: p.name===playerName ? COLORS.accentLight : COLORS.text}}>{p.name} {p.name===playerName?"(you)":""}</span>
+                  <span style={{marginLeft:"auto", color:COLORS.muted, fontSize:"0.8rem"}}>{playerCompletedLines}/5 lines</span>
+                  {i===0 && <span style={{fontSize:"0.7rem", color:COLORS.gold}}>HOST</span>}
+                  {p.won && <span style={{fontSize:"0.7rem", color:COLORS.gold}}>BINGO!</span>}
+                </div>
+              );
+            })}
           </div>
           <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
             <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>LINES COMPLETED ({completedLines}/5)</div>
@@ -286,13 +322,14 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
             </div>
           </div>
 
+          {!winner && <div style={{color:COLORS.muted, fontSize:"0.85rem", textAlign:"center", marginBottom:"1rem"}}>Current Turn: <span style={{color: isMyTurn ? COLORS.accentLight : COLORS.text, fontWeight: isMyTurn ? 700 : 400}}>{room.players[room.currentTurn]?.name || 'Unknown'}</span></div>}
           <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
             <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>CALL NUMBER (all players view)</div>
             <div style={{display:"flex", gap:"0.5rem", marginBottom:"0.75rem"}}>
-              <input value={numberInput} onChange={e => setNumberInput(e.target.value)} placeholder="Type num" style={{flex:1, background:COLORS.bg, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", padding:"0.5rem"}}/>
-              <button onClick={() => { onCallSpecificNumber(numberInput); setNumberInput(""); }} style={{padding:"0.5rem .8rem", background:COLORS.accent, border:"none", borderRadius:"0.5rem", color:"#fff", cursor:"pointer"}}>Call</button>
+              <input value={numberInput} onChange={e => setNumberInput(e.target.value)} placeholder="Type num" disabled={!isMyTurn || !!winner} style={{flex:1, background:COLORS.bg, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", padding:"0.5rem", opacity: isMyTurn && !winner ? 1 : 0.5}}/>
+              <button onClick={() => { onCallSpecificNumber(numberInput); setNumberInput(""); }} disabled={!isMyTurn || !!winner} style={{padding:"0.5rem .8rem", background: isMyTurn && !winner ? COLORS.accent : COLORS.muted, border:"none", borderRadius:"0.5rem", color:"#fff", cursor: isMyTurn && !winner ? "pointer" : "not-allowed"}}>Call</button>
             </div>
-            <div style={{color:COLORS.muted, fontSize:"0.75rem"}}>Host may also use auto-call.</div>
+            <div style={{color:COLORS.muted, fontSize:"0.75rem"}}>Only the current player can call a number.</div>
           </div>
 
           <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", maxHeight:"180px", overflowY:"auto"}}>
@@ -313,7 +350,7 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
         <div style={{flex:"1 1 340px", display:"flex", flexDirection:"column", alignItems:"center"}}>
           <div style={{background:COLORS.card, border:`1px solid ${won ? COLORS.gold : COLORS.cardBorder}`, borderRadius:"1rem", padding:"1.25rem"}}>
             <div style={{color:COLORS.muted, fontSize:"0.75rem", textAlign:"center", marginBottom:"0.75rem"}}>{playerName}'s CARD</div>
-            <BingoCard grid={grid} marked={marked} onMark={handleMark} disabled={!!winner} won={won}/>
+            <BingoCard grid={grid} marked={marked} onMark={handleMark} disabled={!!winner} won={won} completedLines={lineCounts}/>
             {!winner && <div style={{marginTop:"1rem", color:COLORS.muted, fontSize:"0.8rem", textAlign:"center"}}>Click daubed numbers to mark • 5 in a row wins!</div>}
           </div>
         </div>
@@ -345,15 +382,17 @@ export default function BingoApp() {
     }
   }, [screen, syncRoom]);
 
-  const handleCreate = (name, code, size) => {
+  const handleCreate = (name, code, size, roomName) => {
     const newRoom = {
       code,
+      name: roomName,
       size,
       players: [{ name, card: generateCard(size), won: false }],
       called: [],
       chat: [],
       started: false,
-      winner: null
+      winner: null,
+      currentTurn: 0
     };
     saveRoom(code, newRoom);
     setPlayerName(name); setRoomCode(code); setRoom(newRoom); setScreen("waiting");
@@ -397,10 +436,12 @@ export default function BingoApp() {
   const handleCallSpecificNumber = (number) => {
     const r = loadRoom(roomCode);
     if (!r) return;
+    const playerIndex = r.players.findIndex(p => p.name === playerName);
+    if (r.currentTurn !== playerIndex) return; // Not your turn
     const size = r.size || 5;
     const num = Number(number);
     if (!Number.isInteger(num) || num < 1 || num > size * size || r.called.includes(num)) return;
-    const updated = { ...r, called: [...r.called, num] };
+    const updated = { ...r, called: [...r.called, num], currentTurn: (r.currentTurn + 1) % r.players.length };
     saveRoom(roomCode, updated); setRoom(updated);
   };
 
@@ -419,9 +460,18 @@ export default function BingoApp() {
     saveRoom(roomCode, updated); setRoom(updated);
   };
 
-  const handleLeave = () => {
-    clearInterval(pollRef.current);
-    setScreen("lobby"); setRoom(null); setRoomCode(""); setPlayerName("");
+  const handleReset = () => {
+    const r = loadRoom(roomCode);
+    const updated = {
+      ...r,
+      players: r.players.map(p => ({ ...p, card: generateCard(r.size), won: false })),
+      called: [],
+      chat: [],
+      started: false,
+      winner: null,
+      currentTurn: 0
+    };
+    saveRoom(roomCode, updated); setRoom(updated); setScreen("waiting");
   };
 
   if (screen === "lobby") return <Lobby onCreate={handleCreate} onJoin={handleJoin}/>;
