@@ -30,17 +30,20 @@ function generateCard(size = 5) {
 }
 
 function getCompletedLines(marked, grid) {
+  const size = grid.length;
+  if (size === 0) return { diagonals: 0, rows: 0, cols: 0 };
+
   const isMarked = (r,c) => marked.has(`${r}-${c}`) || grid[r][c] === "FREE";
   let rows = 0, cols = 0, diagonals = 0;
 
-  for (let r = 0; r < 5; r++) {
-    if ([0,1,2,3,4].every(c => isMarked(r,c))) rows++;
+  for (let r = 0; r < size; r++) {
+    if (Array.from({ length: size }, (_, c) => c).every(c => isMarked(r, c))) rows++;
   }
-  for (let c = 0; c < 5; c++) {
-    if ([0,1,2,3,4].every(r => isMarked(r,c))) cols++;
+  for (let c = 0; c < size; c++) {
+    if (Array.from({ length: size }, (_, r) => r).every(r => isMarked(r, c))) cols++;
   }
-  if ([0,1,2,3,4].every(i => isMarked(i,i))) diagonals++;
-  if ([0,1,2,3,4].every(i => isMarked(i,4-i))) diagonals++;
+  if (Array.from({ length: size }, (_, i) => i).every(i => isMarked(i, i))) diagonals++;
+  if (Array.from({ length: size }, (_, i) => i).every(i => isMarked(i, size - 1 - i))) diagonals++;
 
   return { diagonals, rows, cols };
 }
@@ -254,15 +257,10 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
             <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1.25rem", marginBottom:"1rem", textAlign:"center"}}>
               <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>LAST CALLED</div>
               <div style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"4rem", lineHeight:1, color:COLORS.accentLight}}>{calledNums[calledNums.length-1]}</div>
-              <div style={{color:COLORS.muted, fontSize:"0.8rem", marginTop:"0.25rem"}}>Number {calledNums.length} of 75</div>
+              <div style={{color:COLORS.muted, fontSize:"0.8rem", marginTop:"0.25rem"}}>Number {calledNums.length} of {size*size}</div>
             </div>
           )}
-          {isHost && !winner && (
-            <button onClick={onCallNumber} style={{width:"100%", padding:"0.85rem", background:`linear-gradient(135deg, ${COLORS.accent}, #9333ea)`, color:"#fff", border:"none", borderRadius:"0.75rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit", fontSize:"1rem", marginBottom:"1rem"}}>
-              🎱 Call Next Number
-            </button>
-          )}
-          {!isHost && !winner && <div style={{color:COLORS.muted, fontSize:"0.85rem", textAlign:"center", marginBottom:"1rem"}}>Waiting for host to call...</div>}
+          {!winner && <div style={{color:COLORS.muted, fontSize:"0.85rem", textAlign:"center", marginBottom:"1rem"}}>Type a number using the manual call input below to share with all players</div>}
           <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
             <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.75rem"}}>PLAYERS</div>
             {room.players.map((p,i) => (
