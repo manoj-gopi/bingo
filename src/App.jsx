@@ -14,29 +14,40 @@ const COLORS = {
   marked: "#10b981",
 };
 
-const BINGO_LETTERS = ["B", "I", "N", "G", "O"];
-const RANGES = { B:[1,15], I:[16,30], N:[31,45], G:[46,60], O:[61,75] };
-
-function generateCard() {
-  const card = [];
-  BINGO_LETTERS.forEach((letter) => {
-    const [min, max] = RANGES[letter];
-    const nums = new Set();
-    while (nums.size < 5) nums.add(Math.floor(Math.random() * (max - min + 1)) + min);
-    card.push([...nums]);
-  });
-  const grid = Array.from({length:5}, (_,row) => card.map(col => col[row]));
-  grid[2][2] = "FREE";
+function generateCard(size = 5) {
+  const total = size * size;
+  const numbers = Array.from({ length: total }, (_, i) => i + 1);
+  for (let i = numbers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+  }
+  const grid = Array.from({ length: size }, (_, r) => numbers.slice(r * size, r * size + size));
+  if (size % 2 === 1) {
+    const mid = Math.floor(size / 2);
+    grid[mid][mid] = "FREE";
+  }
   return grid;
 }
 
-function checkWin(marked, grid) {
+function getCompletedLines(marked, grid) {
   const isMarked = (r,c) => marked.has(`${r}-${c}`) || grid[r][c] === "FREE";
-  for(let r=0;r<5;r++) if([0,1,2,3,4].every(c=>isMarked(r,c))) return true;
-  for(let c=0;c<5;c++) if([0,1,2,3,4].every(r=>isMarked(r,c))) return true;
-  if([0,1,2,3,4].every(i=>isMarked(i,i))) return true;
-  if([0,1,2,3,4].every(i=>isMarked(i,4-i))) return true;
-  return false;
+  let rows = 0, cols = 0, diagonals = 0;
+
+  for (let r = 0; r < 5; r++) {
+    if ([0,1,2,3,4].every(c => isMarked(r,c))) rows++;
+  }
+  for (let c = 0; c < 5; c++) {
+    if ([0,1,2,3,4].every(r => isMarked(r,c))) cols++;
+  }
+  if ([0,1,2,3,4].every(i => isMarked(i,i))) diagonals++;
+  if ([0,1,2,3,4].every(i => isMarked(i,4-i))) diagonals++;
+
+  return { diagonals, rows, cols };
+}
+
+function checkWin(marked, grid) {
+  const { diagonals, rows, cols } = getCompletedLines(marked, grid);
+  return diagonals + rows + cols >= 5;
 }
 
 function roomKey(code) { return `bingo_room_${code}`; }
@@ -50,19 +61,22 @@ function Lobby({ onJoin, onCreate }) {
   const [code, setCode] = useState("");
   const [tab, setTab] = useState("create");
   const [err, setErr] = useState("");
+  const [size, setSize] = useState(5);
 
   const handleCreate = () => {
     if (!name.trim()) return setErr("Enter your name");
     const newCode = Math.random().toString(36).substring(2,7).toUpperCase();
-    onCreate(name.trim(), newCode);
+    onCreate(name.trim(), newCode, size);
   };
   const handleJoin = () => {
     if (!name.trim()) return setErr("Enter your name");
-    if (!code.trim()) return setErr("Enter room code");
-    const room = loadRoom(code.toUpperCase());
+    const normalizedCode = code.trim().toUpperCase();
+    if (!normalizedCode) return setErr("Enter room code");
+    const room = loadRoom(normalizedCode);
     if (!room) return setErr("Room not found");
     if (room.started) return setErr("Game already in progress");
-    onJoin(name.trim(), code.toUpperCase());
+    if (room.players?.some(p => p.name === name.trim())) return setErr("Name already exists in room");
+    onJoin(name.trim(), normalizedCode);
   };
 
   const inputStyle = {
@@ -90,6 +104,12 @@ function Lobby({ onJoin, onCreate }) {
           <div>
             <label style={{color:COLORS.muted, fontSize:"0.8rem", display:"block", marginBottom:"0.4rem"}}>YOUR NAME</label>
             <input value={name} onChange={e=>{setName(e.target.value);setErr("");}} placeholder="Enter your name..." maxLength={20} style={inputStyle}/>
+          </div>
+          <div>
+            <label style={{color:COLORS.muted, fontSize:"0.8rem", display:"block", marginBottom:"0.4rem"}}>BOARD SIZE</label>
+            <select value={size} onChange={e=>{setSize(Number(e.target.value));setErr("");}} style={{...inputStyle, padding:"0.7rem 1rem", fontSize:"1rem"}}>
+              {[5,6,7,8,9,10].map(n => <option key={n} value={n}>{n} × {n} (1–{n*n})</option>)}
+            </select>
           </div>
           {tab === "join" && (
             <div>
@@ -143,15 +163,16 @@ function Waiting({ roomCode, players, isHost, onStart, onRefresh, playerName }) 
 }
 
 function BingoCard({ grid, marked, onMark, disabled, won }) {
+  const size = grid.length;
   return (
     <div style={{display:"inline-block"}}>
-      <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:"4px", marginBottom:"4px"}}>
-        {BINGO_LETTERS.map(l => (
-          <div key={l} style={{width:"60px", height:"32px", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Bebas Neue', sans-serif", fontSize:"1.4rem", letterSpacing:"0.1em", color: won ? COLORS.gold : COLORS.accentLight}}>{l}</div>
+      <div style={{display:"grid", gridTemplateColumns:`repeat(${size}, 1fr)`, gap:"4px", marginBottom:"4px"}}>
+        {Array.from({ length: size }, (_, i) => (`${i + 1}`)).map(label => (
+          <div key={label} style={{width:"60px", height:"32px", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Bebas Neue', sans-serif", fontSize:"1.4rem", letterSpacing:"0.1em", color: won ? COLORS.gold : COLORS.accentLight}}>{label}</div>
         ))}
       </div>
       {grid.map((row, r) => (
-        <div key={r} style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:"4px", marginBottom:"4px"}}>
+        <div key={r} style={{display:"grid", gridTemplateColumns:`repeat(${size}, 1fr)`, gap:"4px", marginBottom:"4px"}}>
           {row.map((cell, c) => {
             const key = `${r}-${c}`;
             const isFree = cell === "FREE";
@@ -170,24 +191,29 @@ function BingoCard({ grid, marked, onMark, disabled, won }) {
 }
 
 function CalledBall({ num }) {
-  let letter = "";
-  for (const [l,[min,max]] of Object.entries(RANGES)) { if(num>=min&&num<=max){letter=l;break;} }
   return (
     <div style={{display:"inline-flex", flexDirection:"column", alignItems:"center", justifyContent:"center", width:"48px", height:"48px", borderRadius:"50%", background:`${COLORS.accent}33`, border:`1.5px solid ${COLORS.accent}`, fontSize:"0.75rem", fontWeight:700, color:COLORS.accentLight, lineHeight:1, gap:"1px"}}>
-      <span style={{fontSize:"0.6rem"}}>{letter}</span>
       <span style={{fontSize:"0.9rem"}}>{num}</span>
     </div>
   );
 }
 
-function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber }) {
+function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSpecificNumber, onSendChat }) {
   const me = room.players.find(p => p.name === playerName);
   const grid = me?.card || [];
-  const [marked, setMarked] = useState(new Set(["2-2"]));
+  const size = grid.length || room?.size || 5;
+  const midPoint = size % 2 === 1 ? Math.floor(size / 2) : null;
+  const initialMarked = new Set();
+  if (midPoint !== null && grid[midPoint]?.[midPoint] === "FREE") initialMarked.add(`${midPoint}-${midPoint}`);
+  const [marked, setMarked] = useState(initialMarked);
+  const [chatInput, setChatInput] = useState("");
+  const [numberInput, setNumberInput] = useState("");
   const won = me?.won;
   const winner = room.winner;
   const isHost = room.players[0]?.name === playerName;
   const calledNums = room.called || [];
+  const lineCounts = grid.length ? getCompletedLines(marked, grid) : { diagonals: 0, rows: 0, cols: 0 };
+  const completedLines = lineCounts.diagonals + lineCounts.rows + lineCounts.cols;
 
   const handleMark = useCallback((key) => {
     const [r,c] = key.split("-").map(Number);
@@ -248,11 +274,41 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber }) {
               </div>
             ))}
           </div>
-          <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem"}}>
+          <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
+            <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>LINES COMPLETED ({completedLines}/5)</div>
+            <div style={{display:"flex", justifyContent:"space-between", color:COLORS.text, fontSize:"0.85rem", marginBottom:"0.75rem"}}>
+              <span>Diagonals: {lineCounts.diagonals}</span>
+              <span>Rows: {lineCounts.rows}</span>
+              <span>Cols: {lineCounts.cols}</span>
+            </div>
             <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.75rem"}}>CALLED ({calledNums.length})</div>
             <div style={{display:"flex", flexWrap:"wrap", gap:"4px"}}>
               {calledNums.map(n => <CalledBall key={n} num={n}/>)}
               {calledNums.length === 0 && <span style={{color:COLORS.muted, fontSize:"0.85rem"}}>None yet</span>}
+            </div>
+          </div>
+
+          <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
+            <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>CALL NUMBER (all players view)</div>
+            <div style={{display:"flex", gap:"0.5rem", marginBottom:"0.75rem"}}>
+              <input value={numberInput} onChange={e => setNumberInput(e.target.value)} placeholder="Type num" style={{flex:1, background:COLORS.bg, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", padding:"0.5rem"}}/>
+              <button onClick={() => { onCallSpecificNumber(numberInput); setNumberInput(""); }} style={{padding:"0.5rem .8rem", background:COLORS.accent, border:"none", borderRadius:"0.5rem", color:"#fff", cursor:"pointer"}}>Call</button>
+            </div>
+            <div style={{color:COLORS.muted, fontSize:"0.75rem"}}>Host may also use auto-call.</div>
+          </div>
+
+          <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", maxHeight:"180px", overflowY:"auto"}}>
+            <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.75rem"}}>CHAT</div>
+            {(room.chat||[]).map((m, i) => (
+              <div key={i} style={{marginBottom:"0.45rem"}}>
+                <span style={{fontWeight:700, color:m.name === playerName ? COLORS.accentLight : COLORS.text}}>{m.name}: </span>
+                <span style={{color:COLORS.text}}>{m.text}</span>
+              </div>
+            ))}
+            {!room.chat?.length && <div style={{color:COLORS.muted, fontSize:"0.8rem"}}>No messages yet</div>}
+            <div style={{display:"flex", gap:"0.5rem", marginTop:"0.75rem"}}>
+              <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type message..." style={{flex:1, background:COLORS.bg, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", padding:"0.5rem"}}/>
+              <button onClick={()=>{ onSendChat(chatInput); setChatInput(""); }} style={{padding:"0.5rem .8rem", background:COLORS.accent, border:"none", borderRadius:"0.5rem", color:"#fff", cursor:"pointer"}}>Send</button>
             </div>
           </div>
         </div>
@@ -291,18 +347,37 @@ export default function BingoApp() {
     }
   }, [screen, syncRoom]);
 
-  const handleCreate = (name, code) => {
-    const newRoom = { code, players: [{ name, card: generateCard(), won: false }], called: [], started: false, winner: null };
+  const handleCreate = (name, code, size) => {
+    const newRoom = {
+      code,
+      size,
+      players: [{ name, card: generateCard(size), won: false }],
+      called: [],
+      chat: [],
+      started: false,
+      winner: null
+    };
     saveRoom(code, newRoom);
     setPlayerName(name); setRoomCode(code); setRoom(newRoom); setScreen("waiting");
   };
 
   const handleJoin = (name, code) => {
-    const r = loadRoom(code);
+    const normalizedCode = code.trim().toUpperCase();
+    const r = loadRoom(normalizedCode);
     if (!r) return;
-    const updated = { ...r, players: [...r.players.filter(p=>p.name!==name), { name, card: generateCard(), won: false }] };
-    saveRoom(code, updated);
-    setPlayerName(name); setRoomCode(code); setRoom(updated); setScreen(r.started ? "game" : "waiting");
+    const sanitizedName = name.trim();
+    const updated = {
+      ...r,
+      players: [
+        ...r.players.filter(p => p.name !== sanitizedName),
+        { name: sanitizedName, card: generateCard(r.size || 5), won: false }
+      ]
+    };
+    saveRoom(normalizedCode, updated);
+    setPlayerName(sanitizedName);
+    setRoomCode(normalizedCode);
+    setRoom(updated);
+    setScreen(r.started ? "game" : "waiting");
   };
 
   const handleStart = () => {
@@ -313,10 +388,29 @@ export default function BingoApp() {
 
   const handleCallNumber = () => {
     const r = loadRoom(roomCode);
-    const remaining = Array.from({length:75},(_,i)=>i+1).filter(n=>!r.called.includes(n));
+    const size = r?.size || 5;
+    const remaining = Array.from({length:size*size},(_,i)=>i+1).filter(n=>!r.called.includes(n));
     if (!remaining.length) return;
     const pick = remaining[Math.floor(Math.random()*remaining.length)];
     const updated = { ...r, called: [...r.called, pick] };
+    saveRoom(roomCode, updated); setRoom(updated);
+  };
+
+  const handleCallSpecificNumber = (number) => {
+    const r = loadRoom(roomCode);
+    if (!r) return;
+    const size = r.size || 5;
+    const num = Number(number);
+    if (!Number.isInteger(num) || num < 1 || num > size * size || r.called.includes(num)) return;
+    const updated = { ...r, called: [...r.called, num] };
+    saveRoom(roomCode, updated); setRoom(updated);
+  };
+
+  const handleSendChat = (text) => {
+    const r = loadRoom(roomCode);
+    if (!r || !text.trim()) return;
+    const message = { name: playerName, text: text.trim(), ts: Date.now() };
+    const updated = { ...r, chat: [...(r.chat||[]), message] };
     saveRoom(roomCode, updated); setRoom(updated);
   };
 
@@ -334,5 +428,5 @@ export default function BingoApp() {
 
   if (screen === "lobby") return <Lobby onCreate={handleCreate} onJoin={handleJoin}/>;
   if (screen === "waiting") return <Waiting roomCode={roomCode} players={room?.players||[]} isHost={room?.players?.[0]?.name===playerName} playerName={playerName} onStart={handleStart} onRefresh={()=>syncRoom()}/>;
-  if (screen === "game") return <GameScreen room={room||loadRoom(roomCode)} playerName={playerName} onBingo={handleBingo} onLeave={handleLeave} onCallNumber={handleCallNumber}/>;
+  if (screen === "game") return <GameScreen room={room||loadRoom(roomCode)} playerName={playerName} onBingo={handleBingo} onLeave={handleLeave} onCallNumber={handleCallNumber} onCallSpecificNumber={handleCallSpecificNumber} onSendChat={handleSendChat}/>;
 }
