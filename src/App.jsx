@@ -438,8 +438,16 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallSpecificNumber, 
             </div>
           </div>
 
-          {!winner && <div style={{ color: COLORS.muted, fontSize: "0.85rem", textAlign: "center", marginBottom: "1rem" }}>Current Turn: <span style={{ color: isMyTurn ? COLORS.accentLight : COLORS.text, fontWeight: isMyTurn ? 700 : 400 }}>{room.players[room.currentTurn]?.name || 'Unknown'}</span></div>}
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}`, borderRadius: "1rem", padding: "1rem", marginBottom: "1rem" }}>
+        </div>
+        <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${won ? COLORS.gold : COLORS.cardBorder}`, borderRadius: "1rem", padding: "1.25rem" }}>
+            <div style={{ color: COLORS.muted, fontSize: "0.75rem", textAlign: "center", marginBottom: "0.75rem" }}>{playerName}'s CARD</div>
+            <BingoCard grid={grid} marked={marked} onMark={handleMark} disabled={!!winner} won={won} completedLines={lineCounts} />
+            {!winner && <div style={{ marginTop: "1rem", color: COLORS.muted, fontSize: "0.8rem", textAlign: "center" }}>Click daubed numbers to mark · 5 in a row wins!</div>}
+          </div>
+
+          {!winner && <div style={{ color: COLORS.muted, fontSize: "0.85rem", textAlign: "center" }}>Current Turn: <span style={{ color: isMyTurn ? COLORS.accentLight : COLORS.text, fontWeight: isMyTurn ? 700 : 400 }}>{room.players[room.currentTurn]?.name || 'Unknown'}</span></div>}
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}`, borderRadius: "1rem", padding: "1rem", width: "100%" }}>
             <div style={{ color: COLORS.muted, fontSize: "0.75rem", marginBottom: "0.5rem" }}>CALL NUMBER (all players view)</div>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
               <input value={numberInput} onChange={e => setNumberInput(e.target.value)} placeholder="Type num" disabled={!isMyTurn || !!winner} style={{ flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.cardBorder}`, borderRadius: "0.5rem", padding: "0.5rem", color: COLORS.text, fontFamily: "inherit", opacity: isMyTurn && !winner ? 1 : 0.5 }} />
@@ -448,7 +456,7 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallSpecificNumber, 
             <div style={{ color: COLORS.muted, fontSize: "0.75rem" }}>Only the current player can call a number.</div>
           </div>
 
-          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}`, borderRadius: "1rem", padding: "1rem", maxHeight: "180px", overflowY: "auto" }}>
+          <div style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}`, borderRadius: "1rem", padding: "1rem", width: "100%", maxHeight: "220px", overflowY: "auto" }}>
             <div style={{ color: COLORS.muted, fontSize: "0.75rem", marginBottom: "0.75rem" }}>CHAT</div>
             {(room.chat || []).map((m, i) => (
               <div key={i} style={{ marginBottom: "0.45rem" }}>
@@ -463,13 +471,6 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallSpecificNumber, 
                 placeholder="Type message..." style={{ flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.cardBorder}`, borderRadius: "0.5rem", padding: "0.5rem", color: COLORS.text, fontFamily: "inherit" }} />
               <button onClick={() => { onSendChat(chatInput); setChatInput(""); }} style={{ padding: "0.5rem .8rem", background: COLORS.accent, border: "none", borderRadius: "0.5rem", color: "#fff", cursor: "pointer" }}>Send</button>
             </div>
-          </div>
-        </div>
-        <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ background: COLORS.card, border: `1px solid ${won ? COLORS.gold : COLORS.cardBorder}`, borderRadius: "1rem", padding: "1.25rem" }}>
-            <div style={{ color: COLORS.muted, fontSize: "0.75rem", textAlign: "center", marginBottom: "0.75rem" }}>{playerName}'s CARD</div>
-            <BingoCard grid={grid} marked={marked} onMark={handleMark} disabled={!!winner} won={won} completedLines={lineCounts} />
-            {!winner && <div style={{ marginTop: "1rem", color: COLORS.muted, fontSize: "0.8rem", textAlign: "center" }}>Click daubed numbers to mark · 5 in a row wins!</div>}
           </div>
         </div>
       </div>
