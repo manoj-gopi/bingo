@@ -153,7 +153,7 @@ function Lobby({ onJoin, onCreate }) {
   );
 }
 
-function Waiting({ roomCode, players, isHost, onStart, onRefresh, playerName }) {
+function Waiting({ room, roomCode, players, isHost, onStart, onRefresh, playerName }) {
   return (
     <div style={{minHeight:"100vh", background:COLORS.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Space Grotesk', sans-serif", padding:"2rem"}}>
       <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
@@ -453,6 +453,11 @@ export default function BingoApp() {
     saveRoom(roomCode, updated); setRoom(updated);
   };
 
+  const handleLeave = () => {
+    clearInterval(pollRef.current);
+    setScreen("lobby"); setRoom(null); setRoomCode(""); setPlayerName("");
+  };
+
   const handleBingo = () => {
     const r = loadRoom(roomCode);
     if (r.winner) return;
@@ -475,6 +480,6 @@ export default function BingoApp() {
   };
 
   if (screen === "lobby") return <Lobby onCreate={handleCreate} onJoin={handleJoin}/>;
-  if (screen === "waiting") return <Waiting roomCode={roomCode} players={room?.players||[]} isHost={room?.players?.[0]?.name===playerName} playerName={playerName} onStart={handleStart} onRefresh={()=>syncRoom()}/>;
+  if (screen === "waiting") return <Waiting room={room||loadRoom(roomCode)} roomCode={roomCode} players={room?.players||[]} isHost={room?.players?.[0]?.name===playerName} playerName={playerName} onStart={handleStart} onRefresh={()=>syncRoom()}/>;
   if (screen === "game") return <GameScreen room={room||loadRoom(roomCode)} playerName={playerName} onBingo={handleBingo} onLeave={handleLeave} onCallNumber={handleCallNumber} onCallSpecificNumber={handleCallSpecificNumber} onSendChat={handleSendChat}/>;
 }
