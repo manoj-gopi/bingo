@@ -80,7 +80,15 @@ async function loadRoom(code) {
   console.log("[Firebase] loadRoom called with code:", code);
   const snap = await get(ref(db, `rooms/${code}`));
   console.log("[Firebase] loadRoom exists:", snap.exists());
-  return snap.exists() ? snap.val() : null;
+  if (!snap.exists()) return null;
+  const r = snap.val();
+  // Firebase removes empty arrays — restore them
+  return {
+    ...r,
+    called: r.called || [],
+    chat: r.chat || [],
+    players: r.players ? Object.values(r.players) : [],
+  };
 }
 
 // ── Lobby ───────────────────────────────────────────────────────────────────
@@ -481,8 +489,14 @@ export default function BingoApp() {
     if ((screen === "waiting" || screen === "game") && roomCode) {
       const roomRef = ref(db, `rooms/${roomCode}`);
       const unsub = onValue(roomRef, (snap) => {
-        const r = snap.val();
-        if (r) {
+        const raw = snap.val();
+        if (raw) {
+          const r = {
+            ...raw,
+            called: raw.called || [],
+            chat: raw.chat || [],
+            players: raw.players ? Object.values(raw.players) : [],
+          };
           setRoom(r);
           if (r.started && screen === "waiting") setScreen("game");
         }
