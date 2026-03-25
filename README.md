@@ -31,4 +31,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Multiplayer Notes
 
-Rooms sync via `localStorage`. For multi-device play, all players need to be on the same browser/device, or you can swap out localStorage for a real backend (Firebase, Supabase, etc.).
+Rooms sync via `localStorage`. For multi-device play, all players need to be on the same browser/device, or you can swap out localStorage for a real backend (Firebase, Supabase, etc.)..
