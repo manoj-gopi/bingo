@@ -71,25 +71,16 @@ function checkWin(marked, grid) {
 
 // ── Firebase helpers ────────────────────────────────────────────────────────
 async function saveRoom(code, data) {
-  try {
-    console.log("[Firebase] saving room:", code);
-    await set(ref(db, `rooms/${code}`), { ...data, _ts: Date.now() });
-    console.log("[Firebase] room saved ok:", code);
-  } catch (e) {
-    console.error("[Firebase] saveRoom error:", e);
-  }
+  console.log("[Firebase] saveRoom called with code:", code);
+  await set(ref(db, `rooms/${code}`), { ...data, _ts: Date.now() });
+  console.log("[Firebase] saveRoom done:", code);
 }
 
 async function loadRoom(code) {
-  try {
-    console.log("[Firebase] loading room:", code);
-    const snap = await get(ref(db, `rooms/${code}`));
-    console.log("[Firebase] room exists:", snap.exists(), snap.val());
-    return snap.exists() ? snap.val() : null;
-  } catch (e) {
-    console.error("[Firebase] loadRoom error:", e);
-    return null;
-  }
+  console.log("[Firebase] loadRoom called with code:", code);
+  const snap = await get(ref(db, `rooms/${code}`));
+  console.log("[Firebase] loadRoom exists:", snap.exists());
+  return snap.exists() ? snap.val() : null;
 }
 
 // ── Lobby ───────────────────────────────────────────────────────────────────
@@ -506,8 +497,14 @@ export default function BingoApp() {
       players: [{ name, card: generateCard(size), won: false }],
       called: [], chat: [], started: false, winner: null, currentTurn: 0,
     };
-    await saveRoom(code, newRoom);
-    setPlayerName(name); setRoomCode(code); setRoom(newRoom); setScreen("waiting");
+    try {
+      await saveRoom(code, newRoom);
+      console.log("[App] handleCreate success, going to waiting");
+      setPlayerName(name); setRoomCode(code); setRoom(newRoom); setScreen("waiting");
+    } catch (e) {
+      console.error("[App] handleCreate FAILED:", e.message, e.code);
+      alert("Failed to create room: " + e.message);
+    }
   };
 
   const handleJoin = async (name, code) => {
