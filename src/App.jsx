@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import "./App.css";
 
 const COLORS = {
   bg: "#0f0f1a",
@@ -107,7 +108,7 @@ function Lobby({ onJoin, onCreate }) {
     <div style={{minHeight:"100vh", background:COLORS.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Space Grotesk', sans-serif", padding:"2rem"}}>
       <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
       <div style={{textAlign:"center", marginBottom:"2.5rem"}}>
-        <div style={{fontSize:"5rem", fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"0.2em", color:COLORS.accentLight, lineHeight:1}}>BINGO</div>
+        <div className="bingo-title" style={{fontSize:"5rem", fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"0.2em", color:COLORS.accentLight, lineHeight:1}}>BINGO</div>
         <div style={{color:COLORS.muted, fontSize:"1rem", marginTop:"0.5rem"}}>Multiplayer · Room-Based</div>
       </div>
       <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1.25rem", padding:"2rem", width:"100%", maxWidth:"420px"}}>
@@ -188,6 +189,15 @@ function Waiting({ room, roomCode, players, isHost, onStart, onRefresh, playerNa
 
 function BingoCard({ grid, marked, onMark, disabled, won, completedLines }) {
   const size = grid.length;
+  const [justMarked, setJustMarked] = useState(null);
+
+  const handleClick = (key) => {
+    if (disabled) return;
+    setJustMarked(key);
+    onMark(key);
+    setTimeout(() => setJustMarked(null), 400);
+  };
+
   return (
     <div style={{display:"inline-block"}}>
       <div style={{display:"grid", gridTemplateColumns:`repeat(${size}, 1fr)`, gap:"4px", marginBottom:"4px"}}>
@@ -206,15 +216,84 @@ function BingoCard({ grid, marked, onMark, disabled, won, completedLines }) {
             const isCompletedMainDiag = completedLines.completedDiagonals.includes('main') && r === c;
             const isCompletedAntiDiag = completedLines.completedDiagonals.includes('anti') && r === size - 1 - c;
             const isWinningLine = isCompletedRow || isCompletedCol || isCompletedMainDiag || isCompletedAntiDiag;
+            const cellClass = [
+              "bingo-cell",
+              justMarked === key ? "cell-marked" : "",
+              isWinningLine && isMarked ? "cell-winning" : "",
+              isFree ? "cell-free" : "",
+            ].filter(Boolean).join(" ");
             return (
-              <button key={c} onClick={() => !disabled && !isFree && onMark(key)}
-                style={{width:"60px", height:"60px", border: isMarked ? `2px solid ${won ? COLORS.gold : isWinningLine ? COLORS.red : COLORS.marked}` : `1px solid ${COLORS.cardBorder}`, borderRadius:"0.5rem", background: isFree ? `${COLORS.gold}22` : isMarked ? `${isWinningLine ? COLORS.red : COLORS.marked}22` : "#0f0f1a", color: isFree ? COLORS.gold : isMarked ? (isWinningLine ? COLORS.red : COLORS.marked) : COLORS.text, fontWeight: isMarked ? 700 : 400, fontSize: isFree ? "0.65rem" : "1.1rem", cursor: disabled||isFree?"default":"pointer", fontFamily:"'Space Grotesk', sans-serif", transition:"all 0.15s", transform: isMarked ? "scale(1.05)" : "scale(1)"}}>
-                {isFree ? "FREE" : cell}
+              <button key={c}
+                className={cellClass}
+                onClick={() => !disabled && !isFree && handleClick(key)}
+                style={{
+                  width:"60px", height:"60px",
+                  border: isMarked ? `2px solid ${won ? COLORS.gold : isWinningLine ? COLORS.gold : COLORS.marked}` : `1px solid ${COLORS.cardBorder}`,
+                  borderRadius:"0.5rem",
+                  background: isFree ? `linear-gradient(135deg, ${COLORS.gold}33, ${COLORS.gold}11)` : isMarked ? (isWinningLine ? `${COLORS.gold}22` : `${COLORS.marked}22`) : "#0f0f1a",
+                  color: isFree ? COLORS.gold : isMarked ? (isWinningLine ? COLORS.gold : COLORS.marked) : COLORS.text,
+                  fontWeight: isMarked ? 700 : 400,
+                  fontSize: isFree ? "0.7rem" : "1.1rem",
+                  cursor: disabled || isFree ? "default" : "pointer",
+                  fontFamily:"'Space Grotesk', sans-serif",
+                }}>
+                {isFree ? "⭐" : cell}
               </button>
             );
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+const CONFETTI_COLORS = ["#f59e0b","#7c3aed","#10b981","#ef4444","#a78bfa","#fbbf24","#34d399"];
+
+function Confetti() {
+  const pieces = useMemo(() => Array.from({length: 80}, (_, i) => ({
+    id: i,
+    left: `${Math.random() * 100}%`,
+    color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+    delay: `${Math.random() * 2}s`,
+    duration: `${2 + Math.random() * 2}s`,
+    size: `${8 + Math.random() * 8}px`,
+    rotate: Math.random() > 0.5 ? "skewX(15deg)" : "skewY(15deg)",
+  })), []);
+  return (
+    <div className="confetti-container">
+      {pieces.map(p => (
+        <div key={p.id} className="confetti-piece" style={{
+          left: p.left,
+          backgroundColor: p.color,
+          animationDelay: p.delay,
+          animationDuration: p.duration,
+          width: p.size, height: p.size,
+          transform: p.rotate,
+        }}/>
+      ))}
+    </div>
+  );
+}
+
+function LinesProgress({ completed, total = 5 }) {
+  const pct = Math.min((completed / total) * 100, 100);
+  return (
+    <div style={{marginTop:"0.75rem"}}>
+      <div style={{display:"flex", justifyContent:"space-between", marginBottom:"0.35rem"}}>
+        <span style={{color:COLORS.muted, fontSize:"0.75rem"}}>LINES COMPLETED</span>
+        <span style={{color: completed >= total ? COLORS.gold : COLORS.accentLight, fontSize:"0.75rem", fontWeight:700}}>{completed}/{total}</span>
+      </div>
+      <div style={{height:"6px", background:"#0f0f1a", borderRadius:"99px", overflow:"hidden"}}>
+        <div className="progress-bar-fill" style={{
+          height:"100%", borderRadius:"99px",
+          width:`${pct}%`,
+          background: completed >= total
+            ? `linear-gradient(90deg, ${COLORS.gold}, #fbbf24)`
+            : `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accentLight})`,
+          boxShadow: completed >= total ? `0 0 8px ${COLORS.gold}88` : `0 0 8px ${COLORS.accent}88`,
+          transition:"width 0.6s ease",
+        }}/>
+      </div>
     </div>
   );
 }
@@ -261,12 +340,13 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
   return (
     <div style={{minHeight:"100vh", background:COLORS.bg, fontFamily:"'Space Grotesk', sans-serif", padding:"1rem"}}>
       <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+      {winner && <Confetti />}
       {winner && (
         <div style={{position:"fixed", top:0, left:0, right:0, bottom:0, background:"#000000cc", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100}}>
-          <div style={{background:COLORS.card, border:`2px solid ${COLORS.gold}`, borderRadius:"1.5rem", padding:"3rem", textAlign:"center", maxWidth:"360px"}}>
-            <div style={{fontSize:"4rem"}}>🎉</div>
-            <div style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"3rem", letterSpacing:"0.2em", color:COLORS.gold}}>{winner === playerName ? "YOU WIN!" : `${winner} WINS!`}</div>
-            <div style={{color:COLORS.muted, marginBottom:"2rem"}}>BINGO!</div>
+          <div className="win-modal" style={{background:COLORS.card, border:`2px solid ${COLORS.gold}`, borderRadius:"1.5rem", padding:"3rem", textAlign:"center", maxWidth:"360px", boxShadow:`0 0 60px ${COLORS.gold}44`}}>
+            <div style={{fontSize:"4rem", marginBottom:"0.5rem"}}>🎉</div>
+            <div className="bingo-title" style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"3rem", letterSpacing:"0.2em", color:COLORS.gold}}>{winner === playerName ? "YOU WIN!" : `${winner} WINS!`}</div>
+            <div style={{color:COLORS.muted, marginBottom:"2rem", letterSpacing:"0.3em", fontSize:"0.9rem"}}>B I N G O !</div>
             <div style={{display:"flex", gap:"1rem"}}>
               <button onClick={onLeave} style={{flex:1, padding:"0.75rem", background:"transparent", border:`1px solid ${COLORS.cardBorder}`, borderRadius:"0.75rem", color:COLORS.muted, cursor:"pointer", fontFamily:"inherit"}}>Leave Room</button>
               {isHost && <button onClick={handleReset} style={{flex:1, padding:"0.75rem", background:`linear-gradient(135deg, ${COLORS.accent}, #9333ea)`, color:"#fff", border:"none", borderRadius:"0.75rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit", fontSize:"1rem"}}>New Game</button>}
@@ -287,7 +367,7 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
           {calledNums.length > 0 && (
             <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1.25rem", marginBottom:"1rem", textAlign:"center"}}>
               <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>LAST CALLED</div>
-              <div style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"4rem", lineHeight:1, color:COLORS.accentLight}}>{calledNums[calledNums.length-1]}</div>
+              <div key={calledNums[calledNums.length-1]} className="last-call-pop" style={{fontFamily:"'Bebas Neue', sans-serif", fontSize:"4rem", lineHeight:1, color:COLORS.accentLight, display:"inline-block"}}>{calledNums[calledNums.length-1]}</div>
               <div style={{color:COLORS.muted, fontSize:"0.8rem", marginTop:"0.25rem"}}>Number {calledNums.length} of {size*size}</div>
             </div>
           )}
@@ -299,7 +379,7 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
               const playerCompletedLines = playerLineCounts.diagonals + playerLineCounts.rows + playerLineCounts.cols;
               return (
                 <div key={i} style={{display:"flex", alignItems:"center", gap:"0.5rem", padding:"0.4rem 0", fontSize:"0.9rem"}}>
-                  <div style={{width:"8px", height:"8px", borderRadius:"50%", background: p.won ? COLORS.gold : i === room.currentTurn ? COLORS.accent : COLORS.green}}></div>
+                  <div className={i === room.currentTurn && !p.won ? "turn-pulse" : ""} style={{width:"8px", height:"8px", borderRadius:"50%", background: p.won ? COLORS.gold : i === room.currentTurn ? COLORS.accent : COLORS.green}}></div>
                   <span style={{color: p.name===playerName ? COLORS.accentLight : COLORS.text}}>{p.name} {p.name===playerName?"(you)":""}</span>
                   <span style={{marginLeft:"auto", color:COLORS.muted, fontSize:"0.8rem"}}>{playerCompletedLines}/5 lines</span>
                   {i===0 && <span style={{fontSize:"0.7rem", color:COLORS.gold}}>HOST</span>}
@@ -309,9 +389,9 @@ function GameScreen({ room, playerName, onBingo, onLeave, onCallNumber, onCallSp
             })}
           </div>
           <div style={{background:COLORS.card, border:`1px solid ${COLORS.cardBorder}`, borderRadius:"1rem", padding:"1rem", marginBottom:"1rem"}}>
-            <div style={{color:COLORS.muted, fontSize:"0.75rem", marginBottom:"0.5rem"}}>LINES COMPLETED ({completedLines}/5)</div>
-            <div style={{display:"flex", justifyContent:"space-between", color:COLORS.text, fontSize:"0.85rem", marginBottom:"0.75rem"}}>
-              <span>Diagonals: {lineCounts.diagonals}</span>
+            <LinesProgress completed={completedLines} />
+            <div style={{display:"flex", justifyContent:"space-between", color:COLORS.muted, fontSize:"0.78rem", marginTop:"0.5rem", marginBottom:"0.75rem"}}>
+              <span>Diag: {lineCounts.diagonals}</span>
               <span>Rows: {lineCounts.rows}</span>
               <span>Cols: {lineCounts.cols}</span>
             </div>
