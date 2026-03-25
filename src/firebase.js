@@ -1,16 +1,14 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
-// TODO: Replace these values with your own Firebase project config
-// Get them from: Firebase Console → Project Settings → Your apps → Web app
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyB-nJudlBuhlVClHpPJwVtJsW75jHab9Yg",
+  authDomain: "bingo-71c67.firebaseapp.com",
+  databaseURL: "https://bingo-71c67-default-rtdb.firebaseio.com",
+  projectId: "bingo-71c67",
+  storageBucket: "bingo-71c67.firebasestorage.app",
+  messagingSenderId: "779819952079",
+  appId: "1:779819952079:web:bf53bd30842bcc078f94ba",
 };
 
 const app = initializeApp(firebaseConfig);
