@@ -71,12 +71,25 @@ function checkWin(marked, grid) {
 
 // ── Firebase helpers ────────────────────────────────────────────────────────
 async function saveRoom(code, data) {
-  await set(ref(db, `rooms/${code}`), { ...data, _ts: Date.now() });
+  try {
+    console.log("[Firebase] saving room:", code);
+    await set(ref(db, `rooms/${code}`), { ...data, _ts: Date.now() });
+    console.log("[Firebase] room saved ok:", code);
+  } catch (e) {
+    console.error("[Firebase] saveRoom error:", e);
+  }
 }
 
 async function loadRoom(code) {
-  const snap = await get(ref(db, `rooms/${code}`));
-  return snap.exists() ? snap.val() : null;
+  try {
+    console.log("[Firebase] loading room:", code);
+    const snap = await get(ref(db, `rooms/${code}`));
+    console.log("[Firebase] room exists:", snap.exists(), snap.val());
+    return snap.exists() ? snap.val() : null;
+  } catch (e) {
+    console.error("[Firebase] loadRoom error:", e);
+    return null;
+  }
 }
 
 // ── Lobby ───────────────────────────────────────────────────────────────────
